@@ -235,6 +235,35 @@
     outline-offset: 2px;
   }
 
+  #upgrades-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(10, 8, 6, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 11;
+  }
+
+  #upgrades-overlay.hidden { display: none; }
+
+  #upgrades-box {
+    background: var(--stone-mid);
+    border: 1px solid var(--stone-tile);
+    border-top: 3px solid var(--moss);
+    border-radius: 10px;
+    padding: 20px 24px;
+    text-align: left;
+    color: var(--parchment);
+    width: 320px;
+  }
+
+  #upgrades-box h3 { margin: 0 0 8px; color: var(--moss); }
+  .upgrade-row { display:flex; justify-content:space-between; align-items:center; margin:8px 0; }
+  .upgrade-row .cost { color: var(--amber); margin-left:8px; }
+  .upgrade-btn { padding:6px 10px; border-radius:6px; background:var(--amber); color:var(--stone-dark); border:none; font-weight:bold; }
+  .start-btn { margin-top:12px; padding:8px 12px; border-radius:6px; background:var(--moss); color:var(--stone-dark); border:none; font-weight:bold; }
+
   @media (prefers-reduced-motion: reduce) {
     .dpad-btn:active { transform: none; }
     #hp-bar-fill { transition: none; }
@@ -254,6 +283,7 @@
       <span id="hp-text">20/20</span>
     </div>
     <div id="floor-block">Floor <span id="floor-text">1</span></div>
+    <div id="gold-block">Gold <span id="gold-text">0</span></div>
   </div>
 
   <canvas id="game-canvas" width="352" height="480"></canvas>
@@ -287,6 +317,32 @@
   </div>
 </div>
 
+<div id="upgrades-overlay" class="hidden">
+  <div id="upgrades-box">
+    <h3>Upgrades</h3>
+    <p id="upgrades-gold-text">Gold: 0</p>
+    <div class="upgrade-row">
+      <div>
+        <div>Increase Max HP</div>
+        <div style="font-size:0.85rem;color:var(--parchment-dim);">Current: <span id="current-maxhp">20</span></div>
+      </div>
+      <div>
+        <button id="buy-maxhp" class="upgrade-btn">Buy (<span class="cost" id="cost-maxhp">21</span>)</button>
+      </div>
+    </div>
+    <div class="upgrade-row">
+      <div>
+        <div>Increase Atk</div>
+        <div style="font-size:0.85rem;color:var(--parchment-dim);">Current: <span id="current-atk">4</span></div>
+      </div>
+      <div>
+        <button id="buy-atk" class="upgrade-btn">Buy (<span class="cost" id="cost-atk">5</span>)</button>
+      </div>
+    </div>
+    <button id="start-next" class="start-btn">Start Next Run</button>
+  </div>
+</div>
+
 <script>
 /* ============================================================
    PIXEL DELVE — a tiny turn-based roguelike
@@ -312,20 +368,15 @@ const ROWS = 15;   // dungeon height, in tiles
 const TILE = 32;   // size of one tile, in pixels
 
 const ENEMY_TEMPLATES = {
-  rat:    { name: 'Rat',    hp: 5, atk: 1, detect: 4 },
-  goblin: { name: 'Goblin', hp: 9, atk: 3, detect: 5 },
+  rat:    { name: 'Rat',    hp: 5, atk: 1, detect: 4, gold: 1 },
+  goblin: { name: 'Goblin', hp: 9, atk: 3, detect: 5, gold: 2 },
 };
 
 /* ---------- CANVAS SETUP ---------- */
 const canvas = document.getElementById('game-canvas');
 const ctx = canvas.getContext('2d');
 
-/* ---------- COLOR TOKENS ----------
-   All colors are defined once, as CSS variables up in <style>.
-   We read them here so the canvas drawing code and the page
-   styling always agree. Want to retheme the whole game? Change
-   the CSS variables at the top of the file — everything below
-   just follows along. */
+/* ---------- COLOR TOKENS ---------- */
 function readColorTokens() {
   const style = getComputedStyle(document.documentElement);
   const read = (name) => style.getPropertyValue(name).trim();
@@ -345,11 +396,9 @@ function readColorTokens() {
 }
 const COLORS = readColorTokens();
 
-/* ---------- GAME STATE ----------
-   Everything about "right now" lives in this one object.
-   That makes it easy to reset (just rebuild the pieces) and
-   easy to reason about — one place to look for "what's
-   happening in the game at this instant." */
+/* ---------- GAME STATE ---------- */
+let persistent = loadPersistent();
+
 let state = {
   floor: 1,
   map: null,
@@ -359,6 +408,19 @@ let state = {
   gameOver: false,
 };
 
+/* ============================================================
+   PERSISTENCE (simple localStorage for upgrades & gold)
+   ============================================================ */
+function loadPersistent() {
+  try {
+    const raw = localStorage.getItem('pixelDelvePersistent');
+    if (raw) return JSON.parse(raw);
+  } catch (e) {}
+  return { gold: 0, baseMaxHp: 20, baseAtk: 4 };
+}
+function savePersistent() {
+  try { localStorage.setItem('pixelDelvePersistent', JSON.stringify(persistent)); } catch (e) {}
+}
 
 /* ============================================================
    DUNGEON GENERATION
@@ -390,14 +452,10 @@ function generateDungeon(floorNum) {
     rooms.push(candidate);
   }
 
-  // Safety net: on the extremely unlikely chance we didn't manage
-  // to place enough rooms, just try the whole thing again.
   if (rooms.length < 2) {
     return generateDungeon(floorNum);
   }
 
-  // Connect each room to the next with a corridor, so the whole
-  // floor is reachable.
   for (let i = 1; i < rooms.length; i++) {
     carveCorridor(grid, roomCenter(rooms[i - 1]), roomCenter(rooms[i]));
   }
@@ -449,13 +507,15 @@ function carveCorridor(grid, a, b) {
   grid[y][x] = FLOOR;
 }
 
-
 /* ============================================================
    ENTITIES (player + monsters)
    ============================================================ */
 
 function createPlayer(x, y) {
-  return { x, y, hp: 20, maxHp: 20, atk: 4 };
+  // Use persistent base stats so upgrades carry between runs
+  const maxHp = persistent.baseMaxHp;
+  const atk = persistent.baseAtk;
+  return { x, y, hp: maxHp, maxHp, atk };
 }
 
 function spawnEnemies(dungeon, floorNum) {
@@ -504,9 +564,9 @@ function createEnemy(type, x, y, floorNum) {
     maxHp: Math.round(template.hp * scale),
     atk: Math.max(1, Math.round(template.atk * scale)),
     detect: template.detect,
+    gold: template.gold || 1,
   };
 }
-
 
 /* ============================================================
    TURNS, MOVEMENT & COMBAT
@@ -533,7 +593,13 @@ function tryPlayerMove(dx, dy) {
     state.player.y = ny;
 
     if (targetTile === STAIRS) {
-      state.player.hp += 1;
+      // Heal equal to the floor you just cleared (cap at maxHp)
+      const heal = state.floor;
+      const prevHp = state.player.hp;
+      state.player.hp = Math.min(state.player.maxHp, state.player.hp + heal);
+      const actualHealed = state.player.hp - prevHp;
+      if (actualHealed > 0) addMessage(`You recover ${actualHealed} HP.`);
+
       descend();
       return; // descending starts a fresh floor; skip the enemy turn below
     }
@@ -560,6 +626,12 @@ function resolveAttack(attacker, defender, attackerLabel, defenderLabel) {
       handleGameOver();
     } else {
       addMessage(`The ${defender.name} is defeated!`);
+      // award gold for the kill
+      const gained = defender.gold || 1;
+      persistent.gold += gained;
+      savePersistent();
+      addMessage(`You gain ${gained} gold.`);
+
       state.enemies = state.enemies.filter(e => e !== defender);
     }
   }
@@ -623,7 +695,6 @@ function canEnemyStandOn(x, y) {
   return true;
 }
 
-
 /* ============================================================
    FLOORS, GAME OVER & RESTART
    ============================================================ */
@@ -647,8 +718,12 @@ function handleGameOver() {
 }
 
 function restartGame() {
+  // show upgrades screen instead of immediately restarting
   document.getElementById('game-over-overlay').classList.add('hidden');
+  openUpgradesOverlay();
+}
 
+function startNewRun() {
   state.floor = 1;
   const dungeon = generateDungeon(1);
   state.map = dungeon.grid;
@@ -660,7 +735,6 @@ function restartGame() {
   addMessage('You descend into the dungeon...');
   render();
 }
-
 
 /* ============================================================
    RENDERING
@@ -805,6 +879,7 @@ function updateHUD() {
   document.getElementById('hp-text').textContent = `${hp}/${state.player.maxHp}`;
   document.getElementById('hp-bar-fill').style.width = `${(hp / state.player.maxHp) * 100}%`;
   document.getElementById('floor-text').textContent = state.floor;
+  document.getElementById('gold-text').textContent = persistent.gold;
 }
 
 function addMessage(msg) {
@@ -819,7 +894,6 @@ function addMessage(msg) {
     log.appendChild(line);
   });
 }
-
 
 /* ============================================================
    HELPERS
@@ -836,7 +910,6 @@ function enemyAt(x, y) {
 function chebyshevDistance(a, b) {
   return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 }
-
 
 /* ============================================================
    INPUT
@@ -866,6 +939,57 @@ document.getElementById('btn-right').addEventListener('click', () => tryPlayerMo
 document.getElementById('btn-wait').addEventListener('click', waitTurn);
 document.getElementById('btn-restart').addEventListener('click', restartGame);
 
+/* ============================================================
+   UPGRADES UI
+   ============================================================ */
+function openUpgradesOverlay() {
+  document.getElementById('upgrades-overlay').classList.remove('hidden');
+  updateUpgradesUI();
+}
+
+function closeUpgradesOverlay() {
+  document.getElementById('upgrades-overlay').classList.add('hidden');
+}
+
+function updateUpgradesUI() {
+  document.getElementById('upgrades-gold-text').textContent = `Gold: ${persistent.gold}`;
+  document.getElementById('current-maxhp').textContent = persistent.baseMaxHp;
+  document.getElementById('current-atk').textContent = persistent.baseAtk;
+  const costMaxHp = persistent.baseMaxHp + 1; // cost equals next value
+  const costAtk = persistent.baseAtk + 1;
+  document.getElementById('cost-maxhp').textContent = costMaxHp;
+  document.getElementById('cost-atk').textContent = costAtk;
+}
+
+function buyMaxHp() {
+  const cost = persistent.baseMaxHp + 1;
+  if (persistent.gold >= cost) {
+    persistent.gold -= cost;
+    persistent.baseMaxHp += 1;
+    savePersistent();
+    addMessage(`Purchased +1 Max HP (cost ${cost}).`);
+    updateUpgradesUI();
+  } else {
+    addMessage('Not enough gold.');
+  }
+}
+
+function buyAtk() {
+  const cost = persistent.baseAtk + 1;
+  if (persistent.gold >= cost) {
+    persistent.gold -= cost;
+    persistent.baseAtk += 1;
+    savePersistent();
+    addMessage(`Purchased +1 Atk (cost ${cost}).`);
+    updateUpgradesUI();
+  } else {
+    addMessage('Not enough gold.');
+  }
+}
+
+document.getElementById('buy-maxhp').addEventListener('click', buyMaxHp);
+document.getElementById('buy-atk').addEventListener('click', buyAtk);
+document.getElementById('start-next').addEventListener('click', () => { closeUpgradesOverlay(); startNewRun(); });
 
 /* ============================================================
    BOOT
