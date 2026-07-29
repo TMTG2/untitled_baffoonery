@@ -1,42 +1,60 @@
 <!DOCTYPE html>
+<!--
+  Pixel Delve - single-file tiny game.
+  I added comments throughout the HTML, CSS and JavaScript so you can teach your 9-year-old nephew.
+  The comments try to keep the language simple and friendly. They'll explain what each section does,
+  and what the important bits of code mean. Enjoy! <3
+-->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<!-- viewport tells the phone or browser how to scale the page -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#1c1712">
 <title>Pixel Delve</title>
+
+<!--
+  CSS section: styles that make the game look nice.
+  In CSS you pick elements (like body, buttons, canvas) and tell the browser
+  how they should look (colors, size, layout).
+-->
 <style>
+  /* :root is where we put "variables" for colors and fonts.
+     Variables start with -- and make it easier to change the theme later. */
   :root {
-    --stone-dark: #1c1712;
-    --stone-mid: #2b241c;
-    --stone-tile: #3a3226;
-    --parchment: #e8ddc7;
-    --parchment-dim: #a89a80;
-    --amber: #e8a33d;
-    --moss: #6a8f4f;
-    --moss-dark: #4d6b38;
-    --ember: #c1442e;
-    --skin: #e8b98a;
-    --fur-brown: #8a6a4b;
+    --stone-dark: #1c1712;    /* background color for dungeon and page */
+    --stone-mid: #2b241c;     /* slightly lighter rock color */
+    --stone-tile: #3a3226;    /* tile color for floor tiles */
+    --parchment: #e8ddc7;     /* light text color */
+    --parchment-dim: #a89a80; /* dimmer text color for less important text */
+    --amber: #e8a33d;         /* highlight / accent color */
+    --moss: #6a8f4f;          /* green for player clothing */
+    --moss-dark: #4d6b38;     /* darker green for pressed buttons */
+    --ember: #c1442e;         /* red/orange used for enemy eyes and highlights */
+    --skin: #e8b98a;          /* player skin color */
+    --fur-brown: #8a6a4b;     /* color used on the rat */
 
     --font-display: ui-rounded, 'Segoe UI Rounded', system-ui, sans-serif;
     --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', 'Roboto Mono', 'Courier New', monospace;
   }
 
+  /* Basic reset so things look consistent across browsers */
   * {
     box-sizing: border-box;
-    -webkit-tap-highlight-color: transparent;
+    -webkit-tap-highlight-color: transparent; /* removes highlight on mobile when tapping */
   }
 
+  /* The page background and default text styles */
   html, body {
     margin: 0;
     padding: 0;
     background: var(--stone-dark);
     color: var(--parchment);
     font-family: var(--font-mono);
-    touch-action: manipulation;
+    touch-action: manipulation; /* help mobile behave like buttons */
   }
 
+  /* The main container keeps the game centered and adds some padding */
   #game-container {
     max-width: 420px;
     margin: 0 auto;
@@ -47,6 +65,7 @@
     gap: 8px;
   }
 
+  /* Heading style — the big title */
   h1 {
     font-family: var(--font-display);
     font-weight: 800;
@@ -56,6 +75,7 @@
     color: var(--amber);
   }
 
+  /* Small subtitle under the title */
   #subtitle {
     font-size: 0.75rem;
     color: var(--parchment-dim);
@@ -63,6 +83,7 @@
     margin: 0 0 6px;
   }
 
+  /* HUD bar showing HP, floor and gold */
   #hud {
     width: 100%;
     max-width: 352px;
@@ -76,39 +97,44 @@
     border-radius: 6px;
   }
 
+  /* Grouping HP elements so they sit in a row */
   #hp-block {
     display: flex;
     align-items: center;
     gap: 6px;
   }
 
+  /* HP bar background box */
   #hp-bar-bg {
     width: 100px;
     height: 11px;
     background: var(--stone-dark);
     border: 1px solid var(--stone-tile);
     border-radius: 6px;
-    overflow: hidden;
+    overflow: hidden; /* prevents the fill from spilling out */
   }
 
+  /* HP bar fill — the width changes in JavaScript to show health */
   #hp-bar-fill {
     height: 100%;
     background: linear-gradient(90deg, var(--ember), var(--amber));
-    width: 100%;
-    transition: width 0.2s ease;
+    width: 100%; /* JS will change this value */
+    transition: width 0.2s ease; /* smooth animation when HP changes */
   }
 
+  /* The canvas is where the game is drawn with JavaScript */
   canvas {
     width: 100%;
-    max-width: 352px;
+    max-width: 352px; /* keep canvas same width as HUD */
     height: auto;
-    image-rendering: pixelated;
+    image-rendering: pixelated; /* keeps pixel-art look sharp */
     background: var(--stone-dark);
     border: 2px solid var(--stone-tile);
     border-radius: 8px;
-    touch-action: none;
+    touch-action: none; /* canvas handles touch manually in JS */
   }
 
+  /* Message log box where game messages appear */
   #message-log {
     width: 100%;
     max-width: 352px;
@@ -123,15 +149,18 @@
     color: var(--parchment-dim);
   }
 
+  /* The little arrow before each line in the message log */
   #message-log div::before {
     content: "› ";
     color: var(--amber);
   }
 
+  /* The newest message should be brighter so you can read it */
   #message-log div:last-child {
     color: var(--parchment);
   }
 
+  /* Controls area for on-screen buttons */
   #controls {
     display: flex;
     flex-direction: column;
@@ -145,6 +174,7 @@
     justify-content: center;
   }
 
+  /* Style for the directional pad buttons */
   .dpad-btn {
     width: 56px;
     height: 56px;
@@ -157,7 +187,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    user-select: none;
+    user-select: none; /* prevents text selection when tapping */
     box-shadow:
       inset 2px 2px 0 rgba(255,255,255,0.06),
       inset -2px -2px 0 rgba(0,0,0,0.35),
@@ -165,6 +195,7 @@
   }
 
   .dpad-btn:active {
+    /* pressed look */
     box-shadow:
       inset 2px 2px 0 rgba(0,0,0,0.35),
       inset -2px -2px 0 rgba(255,255,255,0.04);
@@ -185,6 +216,7 @@
     font-size: 1.4rem;
   }
 
+  /* Game over overlay that covers the screen when the player dies */
   #game-over-overlay {
     position: fixed;
     inset: 0;
@@ -195,6 +227,7 @@
     z-index: 10;
   }
 
+  /* When the hidden class is present we hide overlays */
   #game-over-overlay.hidden {
     display: none;
   }
@@ -226,15 +259,10 @@
     border-radius: 6px;
   }
 
-  #btn-restart:active {
-    background: var(--moss-dark);
-  }
+  #btn-restart:active { background: var(--moss-dark); }
+  #btn-restart:focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
 
-  #btn-restart:focus-visible {
-    outline: 2px solid var(--amber);
-    outline-offset: 2px;
-  }
-
+  /* Upgrades overlay shown between runs */
   #upgrades-overlay {
     position: fixed;
     inset: 0;
@@ -264,6 +292,7 @@
   .upgrade-btn { padding:6px 10px; border-radius:6px; background:var(--amber); color:var(--stone-dark); border:none; font-weight:bold; }
   .start-btn { margin-top:12px; padding:8px 12px; border-radius:6px; background:var(--moss); color:var(--stone-dark); border:none; font-weight:bold; }
 
+  /* Accessibility: if someone asked for reduced motion, we turn off animations */
   @media (prefers-reduced-motion: reduce) {
     .dpad-btn:active { transform: none; }
     #hp-bar-fill { transition: none; }
@@ -273,12 +302,15 @@
 <body>
 
 <div id="game-container">
+  <!-- The visible title and subtitle -->
   <h1>⚔️ Pixel Delve</h1>
   <p id="subtitle">Bump monsters to fight. Reach the gold stairs to descend.</p>
 
+  <!-- HUD: shows HP, floor and gold -->
   <div id="hud">
     <div id="hp-block">
       <span>HP</span>
+      <!-- hp-bar-bg is the box, hp-bar-fill is the colored part that changes width -->
       <div id="hp-bar-bg"><div id="hp-bar-fill"></div></div>
       <span id="hp-text">20/20</span>
     </div>
@@ -286,10 +318,13 @@
     <div id="gold-block">Gold <span id="gold-text">0</span></div>
   </div>
 
+  <!-- This canvas is where the JavaScript draws the dungeon and characters -->
   <canvas id="game-canvas" width="352" height="480"></canvas>
 
+  <!-- Messages from the game (like "You hit the goblin for 3") appear here -->
   <div id="message-log"></div>
 
+  <!-- On-screen controls for touch devices (and mouse) -->
   <div id="controls">
     <div class="dpad-row">
       <div class="dpad-spacer"></div>
@@ -309,6 +344,7 @@
   </div>
 </div>
 
+<!-- Game over overlay is hidden until the player dies -->
 <div id="game-over-overlay" class="hidden">
   <div id="game-over-box">
     <h2>You Died</h2>
@@ -317,6 +353,7 @@
   </div>
 </div>
 
+<!-- Upgrades overlay shows between runs so you can spend gold -->
 <div id="upgrades-overlay" class="hidden">
   <div id="upgrades-box">
     <h3>Upgrades</h3>
@@ -345,38 +382,36 @@
 
 <script>
 /* ============================================================
-   PIXEL DELVE — a tiny turn-based roguelike
-   ============================================================
-   How the game works, in plain terms:
-   1. We build a dungeon floor out of small rooms connected by
-      hallways (see generateDungeon).
-   2. The player moves one tile at a time. Every time the player
-      acts, that's a "turn" — then all the monsters get to act too.
-      That's what makes it "turn-based" instead of real-time.
-   3. Walking into a monster attacks it instead of moving.
-   4. Walking onto the gold stairs takes you to a brand new,
-      randomly generated floor.
+   JAVASCRIPT: game logic, drawing and input handling.
+   The comments below explain what each part does in simple language.
+   If you are reading this with your nephew, feel free to skip around.
+   Try running the game and showing him how changing small values
+   (like player HP) affects gameplay.
    ============================================================ */
 
 /* ---------- CONSTANTS ---------- */
-const WALL = 0;
-const FLOOR = 1;
-const STAIRS = 2;
+// Constants are names we use for numbers so the code is easier to read.
+const WALL = 0;   // a tile that cannot be walked on
+const FLOOR = 1;  // a normal tile you can walk on
+const STAIRS = 2; // the stairs that take you down a floor
 
-const COLS = 11;   // dungeon width, in tiles
-const ROWS = 15;   // dungeon height, in tiles
-const TILE = 32;   // size of one tile, in pixels
+const COLS = 11;   // how many tiles fit across the map
+const ROWS = 15;   // how many tiles fit vertically
+const TILE = 32;   // how many pixels one tile is when drawing on canvas
 
+// Templates define enemy types. It's like a recipe for making a rat or goblin.
 const ENEMY_TEMPLATES = {
   rat:    { name: 'Rat',    hp: 5, atk: 1, detect: 4, gold: 1 },
   goblin: { name: 'Goblin', hp: 9, atk: 3, detect: 5, gold: 2 },
 };
 
 /* ---------- CANVAS SETUP ---------- */
+// The canvas is an HTML element that lets us draw shapes and pictures with JavaScript.
 const canvas = document.getElementById('game-canvas');
-const ctx = canvas.getContext('2d');
+const ctx = canvas.getContext('2d'); // ctx is the drawing context
 
 /* ---------- COLOR TOKENS ---------- */
+// We read the CSS color variables so the drawing code uses the same palette.
 function readColorTokens() {
   const style = getComputedStyle(document.documentElement);
   const read = (name) => style.getPropertyValue(name).trim();
@@ -397,25 +432,29 @@ function readColorTokens() {
 const COLORS = readColorTokens();
 
 /* ---------- GAME STATE ---------- */
-let persistent = loadPersistent();
+// The game keeps its current information (state) in these objects.
+let persistent = loadPersistent(); // persistent stores upgrades and gold between runs
 
 let state = {
-  floor: 1,
-  map: null,
-  player: null,
-  enemies: [],
-  messages: [],
-  gameOver: false,
+  floor: 1,       // current floor number
+  map: null,      // 2D array (grid) for the dungeon
+  player: null,   // player object with x/y/hp/atk
+  enemies: [],    // list of enemy objects
+  messages: [],   // recent messages to show in the message log
+  gameOver: false // true when player dies
 };
 
 /* ============================================================
    PERSISTENCE (simple localStorage for upgrades & gold)
+   localStorage remembers small data in the browser so gold and
+   upgrades stay when you close and reopen the page.
    ============================================================ */
 function loadPersistent() {
   try {
     const raw = localStorage.getItem('pixelDelvePersistent');
     if (raw) return JSON.parse(raw);
   } catch (e) {}
+  // default values if nothing was saved yet
   return { gold: 0, baseMaxHp: 20, baseAtk: 4 };
 }
 function savePersistent() {
@@ -424,42 +463,50 @@ function savePersistent() {
 
 /* ============================================================
    DUNGEON GENERATION
+   We build a simple map by placing a few rectangular rooms and
+   connecting them with corridors. This makes each floor different.
    ============================================================ */
-
 function generateDungeon(floorNum) {
+  // create a grid filled with WALL values
   const grid = [];
   for (let y = 0; y < ROWS; y++) {
     grid.push(new Array(COLS).fill(WALL));
   }
 
   const rooms = [];
+  // we aim for 5 to 7 rooms per floor
   const targetRoomCount = 5 + Math.floor(Math.random() * 3); // 5-7 rooms
   let attempts = 0;
 
+  // try to add rooms until we reach the target
   while (rooms.length < targetRoomCount && attempts < 300) {
     attempts++;
 
-    const w = 3 + Math.floor(Math.random() * 3); // 3-5 tiles wide
-    const h = 3 + Math.floor(Math.random() * 3); // 3-5 tiles tall
-    const x = 1 + Math.floor(Math.random() * (COLS - w - 2));
+    const w = 3 + Math.floor(Math.random() * 3); // room width 3-5 tiles
+    const h = 3 + Math.floor(Math.random() * 3); // room height 3-5 tiles
+    const x = 1 + Math.floor(Math.random() * (COLS - w - 2)); // random position
     const y = 1 + Math.floor(Math.random() * (ROWS - h - 2));
     const candidate = { x, y, w, h };
 
+    // avoid overlapping rooms
     const overlapsExisting = rooms.some(r => roomsOverlap(candidate, r, 1));
     if (overlapsExisting) continue;
 
-    carveRoom(grid, candidate);
+    carveRoom(grid, candidate); // turn the chosen rectangle into floor tiles
     rooms.push(candidate);
   }
 
+  // if we couldn't place enough rooms, try again recursively
   if (rooms.length < 2) {
     return generateDungeon(floorNum);
   }
 
+  // connect rooms in order with corridors
   for (let i = 1; i < rooms.length; i++) {
     carveCorridor(grid, roomCenter(rooms[i - 1]), roomCenter(rooms[i]));
   }
 
+  // place stairs in the last room and the player in the first room
   const stairsPos = roomCenter(rooms[rooms.length - 1]);
   grid[stairsPos.y][stairsPos.x] = STAIRS;
 
@@ -468,6 +515,7 @@ function generateDungeon(floorNum) {
   return { grid, rooms, stairsPos, playerStart };
 }
 
+// Helper: check if two rooms overlap (with a little buffer)
 function roomsOverlap(a, b, buffer) {
   return !(
     a.x + a.w + buffer < b.x ||
@@ -477,6 +525,7 @@ function roomsOverlap(a, b, buffer) {
   );
 }
 
+// Turns a rectangle area of the grid into FLOOR tiles
 function carveRoom(grid, room) {
   for (let y = room.y; y < room.y + room.h; y++) {
     for (let x = room.x; x < room.x + room.w; x++) {
@@ -485,6 +534,7 @@ function carveRoom(grid, room) {
   }
 }
 
+// Returns the center tile of a room (nice place to put stairs or player)
 function roomCenter(room) {
   return {
     x: room.x + Math.floor(room.w / 2),
@@ -492,6 +542,7 @@ function roomCenter(room) {
   };
 }
 
+// Carve a simple L-shaped corridor between two points
 function carveCorridor(grid, a, b) {
   let x = a.x;
   let y = a.y;
@@ -509,10 +560,12 @@ function carveCorridor(grid, a, b) {
 
 /* ============================================================
    ENTITIES (player + monsters)
+   We create objects for the player and enemies. Each one has x/y
+   coordinates, HP, attack power, and other simple stats.
    ============================================================ */
 
 function createPlayer(x, y) {
-  // Use persistent base stats so upgrades carry between runs
+  // use saved upgrades so the player gets stronger between runs
   const maxHp = persistent.baseMaxHp;
   const atk = persistent.baseAtk;
   return { x, y, hp: maxHp, maxHp, atk };
@@ -521,8 +574,9 @@ function createPlayer(x, y) {
 function spawnEnemies(dungeon, floorNum) {
   const enemies = [];
   const types = Object.keys(ENEMY_TEMPLATES);
-  const roomsForEnemies = dungeon.rooms.slice(1); // skip the player's start room
+  const roomsForEnemies = dungeon.rooms.slice(1); // skip player's starting room
 
+  // put 0-2 enemies in each other room
   roomsForEnemies.forEach(room => {
     const count = randomEnemyCountForRoom();
     for (let i = 0; i < count; i++) {
@@ -538,12 +592,13 @@ function spawnEnemies(dungeon, floorNum) {
 
 function randomEnemyCountForRoom() {
   const roll = Math.random();
-  if (roll < 0.55) return 1;
-  if (roll < 0.70) return 2;
-  return 0;
+  if (roll < 0.55) return 1; // most rooms get 1 enemy
+  if (roll < 0.70) return 2; // some rooms get 2
+  return 0; // a few rooms are empty
 }
 
 function randomFloorTileInRoom(grid, room) {
+  // try up to 20 times to find an empty floor tile inside the room
   for (let attempt = 0; attempt < 20; attempt++) {
     const x = room.x + Math.floor(Math.random() * room.w);
     const y = room.y + Math.floor(Math.random() * room.h);
@@ -554,7 +609,8 @@ function randomFloorTileInRoom(grid, room) {
 
 function createEnemy(type, x, y, floorNum) {
   const template = ENEMY_TEMPLATES[type];
-  const scale = 1 + (floorNum - 1) * 0.15; // monsters get a little stronger each floor
+  // make enemies scale slightly with the floor so things get harder
+  const scale = 1 + (floorNum - 1) * 0.15;
 
   return {
     type,
@@ -570,43 +626,49 @@ function createEnemy(type, x, y, floorNum) {
 
 /* ============================================================
    TURNS, MOVEMENT & COMBAT
+   The game is turn-based: when the player moves or waits, all
+   enemies get to act after the player. Walking into an enemy
+   attacks it instead of moving onto the tile.
    ============================================================ */
 
 function tryPlayerMove(dx, dy) {
-  if (state.gameOver) return;
+  if (state.gameOver) return; // don't allow moves when game over
 
   const nx = state.player.x + dx;
   const ny = state.player.y + dy;
-  if (!inBounds(nx, ny)) return;
+  if (!inBounds(nx, ny)) return; // ignore moves outside the map
 
   const targetTile = state.map[ny][nx];
 
   if (targetTile === WALL) {
-    return; // bumping a wall doesn't cost a turn
+    return; // bumping a wall does nothing and doesn't cost a turn
   }
 
-  const target = enemyAt(nx, ny);
+  const target = enemyAt(nx, ny); // check if an enemy stands there
   if (target) {
+    // attack the enemy
     resolveAttack(state.player, target, 'You', target.name);
   } else {
+    // move the player to the new tile
     state.player.x = nx;
     state.player.y = ny;
 
     if (targetTile === STAIRS) {
-      // Heal equal to the floor you just cleared (cap at maxHp)
-      const heal = state.floor;
+      // stepping on stairs heals a little and moves down one floor
+      const heal = state.floor; // heal amount equals floor number
       const prevHp = state.player.hp;
       state.player.hp = Math.min(state.player.maxHp, state.player.hp + heal);
       const actualHealed = state.player.hp - prevHp;
       if (actualHealed > 0) addMessage(`You recover ${actualHealed} HP.`);
 
       descend();
-      return; // descending starts a fresh floor; skip the enemy turn below
+      return; // descending creates a new floor, skip the enemy turn for now
     }
   }
 
+  // after the player's action, enemies take their turns
   enemyTurn();
-  render();
+  render(); // redraw everything
 }
 
 function waitTurn() {
@@ -616,17 +678,19 @@ function waitTurn() {
   render();
 }
 
+// Handles an attack from attacker to defender
 function resolveAttack(attacker, defender, attackerLabel, defenderLabel) {
+  // simple damage roll: attack + random(0..2) but at least 1
   const dmg = Math.max(1, attacker.atk + Math.floor(Math.random() * 3) - 1);
   defender.hp -= dmg;
   addMessage(`${attackerLabel} hit${attackerLabel === 'You' ? '' : 's'} ${defenderLabel} for ${dmg}.`);
 
   if (defender.hp <= 0) {
     if (defender === state.player) {
-      handleGameOver();
+      handleGameOver(); // player died
     } else {
+      // enemy died: give gold and remove from list
       addMessage(`The ${defender.name} is defeated!`);
-      // award gold for the kill
       const gained = defender.gold || 1;
       persistent.gold += gained;
       savePersistent();
@@ -637,27 +701,32 @@ function resolveAttack(attacker, defender, attackerLabel, defenderLabel) {
   }
 }
 
+// All enemies act once after the player moves
 function enemyTurn() {
   if (state.gameOver) return;
 
   state.enemies.forEach(enemy => {
-    if (enemy.hp <= 0) return;
+    if (enemy.hp <= 0) return; // dead enemies do nothing
 
-    const dist = chebyshevDistance(enemy, state.player);
+    const dist = chebyshevDistance(enemy, state.player); // how far are they?
 
     if (dist === 1) {
+      // if adjacent, attack the player
       resolveAttack(enemy, state.player, enemy.name, 'you');
       return;
     }
 
     if (dist <= enemy.detect) {
+      // if player is close enough, step toward the player
       stepEnemyToward(enemy, state.player);
     } else if (Math.random() < 0.5) {
+      // otherwise sometimes wander randomly
       wanderEnemy(enemy);
     }
   });
 }
 
+// Move an enemy one step closer to the target (player)
 function stepEnemyToward(enemy, target) {
   const dx = Math.sign(target.x - enemy.x);
   const dy = Math.sign(target.y - enemy.y);
@@ -676,6 +745,7 @@ function stepEnemyToward(enemy, target) {
   }
 }
 
+// Move an enemy in a random direction (if possible)
 function wanderEnemy(enemy) {
   const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   const [dx, dy] = dirs[Math.floor(Math.random() * dirs.length)];
@@ -687,6 +757,7 @@ function wanderEnemy(enemy) {
   }
 }
 
+// Check if an enemy can stand on a tile (not wall, not player, not another enemy)
 function canEnemyStandOn(x, y) {
   if (!inBounds(x, y)) return false;
   if (state.map[y][x] === WALL) return false;
@@ -697,6 +768,8 @@ function canEnemyStandOn(x, y) {
 
 /* ============================================================
    FLOORS, GAME OVER & RESTART
+   Functions for changing floors, handling death, and starting
+   a new game run.
    ============================================================ */
 
 function descend() {
@@ -718,12 +791,14 @@ function handleGameOver() {
 }
 
 function restartGame() {
-  // show upgrades screen instead of immediately restarting
+  // instead of immediately restarting we show upgrades so the player
+  // can spend gold between runs
   document.getElementById('game-over-overlay').classList.add('hidden');
   openUpgradesOverlay();
 }
 
 function startNewRun() {
+  // reset the important state and generate a fresh dungeon
   state.floor = 1;
   const dungeon = generateDungeon(1);
   state.map = dungeon.grid;
@@ -738,22 +813,29 @@ function startNewRun() {
 
 /* ============================================================
    RENDERING
+   These functions draw the map, the player, and enemies on the
+   canvas using simple shapes. The drawing uses the COLORS we
+   read from the CSS variables at the top.
    ============================================================ */
 
 function render() {
+  // clear the canvas with the background color
   ctx.fillStyle = COLORS.stoneDark;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+  // draw every tile in the map
   for (let y = 0; y < ROWS; y++) {
     for (let x = 0; x < COLS; x++) {
       drawTile(state.map[y][x], x, y);
     }
   }
 
+  // draw enemies on top of tiles
   state.enemies.forEach(drawEnemy);
+  // draw the player last so they appear above tiles and enemies
   drawPlayer(state.player.x, state.player.y);
 
-  updateHUD();
+  updateHUD(); // refresh the HUD text and HP bar
 }
 
 function drawTile(tile, x, y) {
@@ -766,11 +848,13 @@ function drawTile(tile, x, y) {
     return;
   }
 
+  // floor tile drawing
   ctx.fillStyle = COLORS.stoneTile;
   ctx.fillRect(px, py, TILE, TILE);
   ctx.strokeStyle = 'rgba(0,0,0,0.25)';
   ctx.strokeRect(px + 0.5, py + 0.5, TILE - 1, TILE - 1);
 
+  // draw the stairs as a bright square in the middle of the tile
   if (tile === STAIRS) {
     ctx.fillStyle = COLORS.amber;
     ctx.fillRect(px + TILE * 0.25, py + TILE * 0.25, TILE * 0.5, TILE * 0.5);
@@ -778,6 +862,7 @@ function drawTile(tile, x, y) {
 }
 
 function drawPlayer(x, y) {
+  // draw the player using simple circles and rectangles
   const cx = x * TILE + TILE / 2;
   const cy = y * TILE + TILE / 2;
   const r = TILE * 0.36;
@@ -832,6 +917,7 @@ function drawRat(x, y) {
   ctx.lineTo(cx + r * 0.15, cy - r * 0.55);
   ctx.fill();
 
+  // little eyes
   ctx.fillStyle = COLORS.ember;
   ctx.fillRect(cx - r * 0.4, cy - r * 0.1, r * 0.22, r * 0.22);
   ctx.fillRect(cx + r * 0.18, cy - r * 0.1, r * 0.22, r * 0.22);
@@ -862,18 +948,19 @@ function drawGoblin(x, y) {
   ctx.fillRect(cx + r * 0.12, cy - r * 0.55, r * 0.18, r * 0.18);
 }
 
+// small helpers for drawing shapes
 function circle(cx, cy, r) {
   ctx.beginPath();
   ctx.arc(cx, cy, r, 0, Math.PI * 2);
   ctx.fill();
 }
-
 function ellipse(cx, cy, rx, ry) {
   ctx.beginPath();
   ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
   ctx.fill();
 }
 
+// Update visible HUD values for HP, floor and gold
 function updateHUD() {
   const hp = Math.max(0, state.player.hp);
   document.getElementById('hp-text').textContent = `${hp}/${state.player.maxHp}`;
@@ -882,6 +969,7 @@ function updateHUD() {
   document.getElementById('gold-text').textContent = persistent.gold;
 }
 
+// Add a message to the message log and keep only a few recent ones
 function addMessage(msg) {
   state.messages.push(msg);
   if (state.messages.length > 4) state.messages.shift();
@@ -896,9 +984,8 @@ function addMessage(msg) {
 }
 
 /* ============================================================
-   HELPERS
+   HELPERS: utility functions used by many parts of the code
    ============================================================ */
-
 function inBounds(x, y) {
   return x >= 0 && x < COLS && y >= 0 && y < ROWS;
 }
@@ -907,12 +994,16 @@ function enemyAt(x, y) {
   return state.enemies.find(e => e.x === x && e.y === y && e.hp > 0);
 }
 
+// Chebyshev distance measures how many king-steps it takes to reach
+// from one square to another on a chessboard (max of dx and dy)
 function chebyshevDistance(a, b) {
   return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
 }
 
 /* ============================================================
-   INPUT
+   INPUT: keyboard and button handlers
+   This code listens for keys and button clicks and turns them
+   into game actions like moving or waiting.
    ============================================================ */
 
 window.addEventListener('keydown', (e) => {
@@ -932,6 +1023,7 @@ window.addEventListener('keydown', (e) => {
   }
 });
 
+// hook up on-screen buttons for touch or mouse
 document.getElementById('btn-up').addEventListener('click', () => tryPlayerMove(0, -1));
 document.getElementById('btn-down').addEventListener('click', () => tryPlayerMove(0, 1));
 document.getElementById('btn-left').addEventListener('click', () => tryPlayerMove(-1, 0));
@@ -941,16 +1033,16 @@ document.getElementById('btn-restart').addEventListener('click', restartGame);
 
 /* ============================================================
    UPGRADES UI
+   Simple functions to open/close the upgrade screen, show
+   current prices, and buy upgrades with the gold you earned.
    ============================================================ */
 function openUpgradesOverlay() {
   document.getElementById('upgrades-overlay').classList.remove('hidden');
   updateUpgradesUI();
 }
-
 function closeUpgradesOverlay() {
   document.getElementById('upgrades-overlay').classList.add('hidden');
 }
-
 function updateUpgradesUI() {
   document.getElementById('upgrades-gold-text').textContent = `Gold: ${persistent.gold}`;
   document.getElementById('current-maxhp').textContent = persistent.baseMaxHp;
@@ -992,19 +1084,25 @@ document.getElementById('buy-atk').addEventListener('click', buyAtk);
 document.getElementById('start-next').addEventListener('click', () => { closeUpgradesOverlay(); startNewRun(); });
 
 /* ============================================================
-   BOOT
+   BOOT: initialize the game when the page loads
+   We create the first dungeon, the player, enemies and then
+   draw the initial screen.
    ============================================================ */
-
 function initGame() {
   const dungeon = generateDungeon(1);
   state.map = dungeon.grid;
   state.player = createPlayer(dungeon.playerStart.x, dungeon.playerStart.y);
   state.enemies = spawnEnemies(dungeon, 1);
+  state.gameOver = false;
+  state.messages = [];
+
   addMessage('You descend into the dungeon...');
   render();
 }
 
+// start the game now
 initGame();
+
 </script>
 </body>
 </html>
