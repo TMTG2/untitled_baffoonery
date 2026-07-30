@@ -433,7 +433,7 @@ const COLORS = readColorTokens();
 
 /* ---------- GAME STATE ---------- */
 // The game keeps its current information (state) in these objects.
-let persistent = loadPersistent(); // persistent stores upgrades and gold between runs
+let persistent = { gold: 0, baseMaxHp: 20, baseAtk: 4 }; // start fresh every page load
 
 let state = {
   floor: 1,       // current floor number
